@@ -259,23 +259,38 @@ asyncio.run(main())
   titulo
   echo -e "  ${BOLD}🎯 PASSO 6 — Grupo(s) DESTINO${NC}\n"
   echo -e "  Para onde as mensagens serão enviadas."
-  echo -e "  Pode ser vários, separados por vírgula."
-  echo -e "  ${YELLOW}Como descobrir o ID: adicione @userinfobot no grupo${NC}\n"
-  read -p "  ID(s) destino: " TARGET_GROUP_ID
-  while [[ ! "$TARGET_GROUP_ID" == -* ]]; do
-    echo -e "  ${RED}❌ ID deve começar com '-'${NC}"; read -p "  TARGET_GROUP_ID: " TARGET_GROUP_ID
-  done
+  echo -e "  ${CYAN}[1]${NC} Configurar agora"
+  echo -e "  ${CYAN}[2]${NC} Pular — configurar depois pelo /menu ✅\n"
+  read -p "  Escolha: " op_dest
+  TARGET_GROUP_ID=""
+  if [ "$op_dest" = "1" ]; then
+    echo -e "  Pode enviar vários IDs separados por vírgula."
+    echo -e "  ${YELLOW}Como descobrir o ID: adicione @userinfobot no grupo${NC}\n"
+    read -p "  ID(s) destino: " TARGET_GROUP_ID
+    while [[ ! "$TARGET_GROUP_ID" == -* ]]; do
+      echo -e "  ${RED}❌ ID deve começar com '-'${NC}"; read -p "  TARGET_GROUP_ID: " TARGET_GROUP_ID
+    done
+    echo -e "  ${GREEN}✅ Destino(s) salvo(s)!${NC}"
+  else
+    echo -e "  ${YELLOW}⏭ Pulado — configure depois com 🎯 Destinos no /menu${NC}"
+  fi
   pausar
 
   # ORIGENS
   titulo
   echo -e "  ${BOLD}📡 PASSO 7 — Grupos de ORIGEM${NC}\n"
-  echo -e "  ${CYAN}[1]${NC} Monitorar TODOS os grupos"
-  echo -e "  ${CYAN}[2]${NC} Apenas grupos específicos\n"
+  echo -e "  ${CYAN}[1]${NC} Monitorar TODOS os grupos (padrão)"
+  echo -e "  ${CYAN}[2]${NC} Apenas grupos específicos"
+  echo -e "  ${CYAN}[3]${NC} Pular — configurar depois pelo /menu ✅\n"
   read -p "  Escolha: " op_orig
   SOURCE_CHAT_IDS=""
   if [ "$op_orig" = "2" ]; then
     read -p "  IDs separados por vírgula: " SOURCE_CHAT_IDS
+    echo -e "  ${GREEN}✅ Origens salvas!${NC}"
+  elif [ "$op_orig" = "3" ]; then
+    echo -e "  ${YELLOW}⏭ Pulado — configure depois com 📡 Origens no /menu${NC}"
+  else
+    echo -e "  ${GREEN}✅ Monitorará todos os grupos!${NC}"
   fi
   pausar
 
