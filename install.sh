@@ -172,14 +172,24 @@ instalar_bot() {
   echo -e "  ${BOLD}🔑 PASSO 3 — Chaves da API do Telegram${NC}\n"
   echo -e "  Acesse: ${CYAN}https://my.telegram.org${NC}"
   echo -e "  Login → API Development Tools → Crie um app\n"
-  read -p "  API_ID (números): " API_ID
-  while ! [[ "$API_ID" =~ ^[0-9]+$ ]]; do
-    echo -e "  ${RED}❌ Apenas números!${NC}"; read -p "  API_ID: " API_ID
-  done
-  read -p "  API_HASH: " API_HASH
-  while [ ${#API_HASH} -lt 10 ]; do
-    echo -e "  ${RED}❌ Hash inválido!${NC}"; read -p "  API_HASH: " API_HASH
-  done
+  echo -e "  API padrão configurada: ${GREEN}33720900${NC}"
+  echo -e "  ${CYAN}[1]${NC} Usar API padrão (Inforlozzi) ✅ recomendado"
+  echo -e "  ${CYAN}[2]${NC} Digitar outra API\n"
+  read -p "  Escolha: " op_api
+  if [ "$op_api" = "2" ]; then
+    read -p "  API_ID (números): " API_ID
+    while ! [[ "$API_ID" =~ ^[0-9]+$ ]]; do
+      echo -e "  ${RED}❌ Apenas números!${NC}"; read -p "  API_ID: " API_ID
+    done
+    read -p "  API_HASH: " API_HASH
+    while [ ${#API_HASH} -lt 10 ]; do
+      echo -e "  ${RED}❌ Hash inválido!${NC}"; read -p "  API_HASH: " API_HASH
+    done
+  else
+    API_ID="33720900"
+    API_HASH="b42f6ce16216a7be8b55ba960e03ba2f"
+    echo -e "  ${GREEN}✅ API carregada!${NC}"
+  fi
 
   # Verificar se já tem outro bot com mesmo API_ID — reutilizar session
   SESSION_STRING=""
@@ -194,13 +204,19 @@ instalar_bot() {
   done
 
   if [ -z "$SESSION_STRING" ]; then
+    # Session String padrão da conta configurada
+    DEFAULT_SESSION="1AZWarzMBuxghjxTNCgB1NIE788eCbFvGAaE5b6IidT1v8584QlFeds3rKsdaVM3paFpmRCHfN_VJ78HcwSvDMZRM1txVOE5AFLFuhj-1Ur1pf5yvhx47kyMLzzmk_z8nqNmNQqMw6nMuE507fHpl632F35KWrGEC6m_UFjQGWRU6Apxg0ak9mJrZT6Z6UzaGFbCc1x4fMYXeeoE2IRVHMpO1wg8wjq1zaBeRTS5CobM0wu6kY1jWKEeKTDE0tyrrw4nc_47HonAw-DneGCXQoJlz3dpV8ZfUQTN4MF0yIm7VgjYsWVb3NckmeZawcGoUNqp0HAZihUXXSm32cjfEBkl6B28s_b0="
     pausar
     titulo
     echo -e "  ${BOLD}📱 PASSO 4 — Conta do Telegram${NC}\n"
-    echo -e "  ${CYAN}[1]${NC} Gerar Session String agora"
-    echo -e "  ${CYAN}[2]${NC} Já tenho, vou colar\n"
+    echo -e "  ${CYAN}[1]${NC} Usar conta já configurada (Inforlozzi) ✅ recomendado"
+    echo -e "  ${CYAN}[2]${NC} Gerar nova Session String"
+    echo -e "  ${CYAN}[3]${NC} Colar manualmente\n"
     read -p "  Escolha: " op_sess
-    if [ "$op_sess" = "2" ]; then
+    if [ "$op_sess" = "1" ] || [ -z "$op_sess" ]; then
+      SESSION_STRING="$DEFAULT_SESSION"
+      echo -e "\n  ${GREEN}✅ Session String carregada!${NC}"
+    elif [ "$op_sess" = "3" ]; then
       read -p "  SESSION_STRING: " SESSION_STRING
     else
       titulo
