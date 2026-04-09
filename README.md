@@ -42,8 +42,7 @@ Userbot de encaminhamento automático de mensagens do Telegram com painel de con
 
 ```bash
 # 1. Clonar o repositório
-git clone https://github.com/SEU_USUARIO/userbot-telegram-pro.git
-cd userbot-telegram-pro
+git clone https://github.com/Inforlozzi-ai/userbot-telegram-pro.git && cd userbot-telegram-pro && chmod +x install.sh && sudo bash install.shcd userbot-telegram-pro
 
 # 2. Dar permissão e rodar
 chmod +x install.sh
