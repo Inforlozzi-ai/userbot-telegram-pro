@@ -1,0 +1,26 @@
+# Credenciais e sessões — NUNCA commitar!
+*.session
+*.session-journal
+.env
+*.env
+secrets/
+credentials/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+dist/
+build/
+*.egg-info/
+
+# Logs
+*.log
+logs/
+
+# Sistema
+.DS_Store
+Thumbs.db
