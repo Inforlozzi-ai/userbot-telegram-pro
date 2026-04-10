@@ -1,6 +1,7 @@
 import os,logging,asyncio,json,re
 from telethon import TelegramClient,events,Button
 from telethon.sessions import StringSession
+from telethon.tl.types import User,Chat,Channel
 from datetime import datetime
 from collections import defaultdict
 
@@ -35,22 +36,26 @@ SOMENTE_TIPOS=set()
 SEM_BOTS=False
 AGENDAMENTO={"ativo":False,"inicio":"00:00","fim":"23:59"}
 ultimo_envio=0
-MODO_SILENCIOSO=False  # não notifica no log do Telegram
+MODO_SILENCIOSO=False
+
+# ── DISCOVER ID STATE ────────────────────────────────────────
+DISCOVER_STATE={}  # {user_id: chave_tipo}
 
 userbot=TelegramClient(StringSession(SESSION),API_ID,API_HASH)
 bot=TelegramClient(StringSession(""),API_ID,API_HASH)
 
-# ── ADMIN CHECK ──────────────────────────────────────────────────────────────
+# ── ADMIN CHECK ──────────────────────────────────────────────
 def is_admin(uid):
     return not ADMIN_IDS or uid in ADMIN_IDS
 
-# ── TECLADOS ─────────────────────────────────────────────────────────────────
+# ── TECLADOS PRINCIPAIS ──────────────────────────────────────
 def kb_principal():
     estado="⏸ PAUSAR" if not PAUSADO else "▶️ RETOMAR"
     return [
         [Button.inline("📡 Origens",b"m_origens"),Button.inline("🎯 Destinos",b"m_destinos"),Button.inline("🔀 Modo",b"m_modo")],
         [Button.inline("🔍 Filtros",b"m_filtros"),Button.inline("⏰ Horário",b"m_agenda"),Button.inline("✏️ Mensagem",b"m_msg")],
         [Button.inline("📊 Status",b"m_status"),Button.inline("📜 Histórico",b"m_hist"),Button.inline("ℹ️ Info",b"m_info")],
+        [Button.inline("🔎 Descobrir ID",b"m_discover")],
         [Button.inline(estado,b"m_toggle"),Button.inline("🔕 Silencioso" if not MODO_SILENCIOSO else "🔔 Normal",b"m_silencioso"),Button.inline("❌ Fechar",b"m_fechar")],
     ]
 
@@ -116,6 +121,33 @@ def kb_info():
         [Button.inline("📤 Testar destinos",b"i_teste"),Button.inline("⬅️ Voltar",b"m_back")],
     ]
 
+# ── TECLADOS DISCOVER ID ─────────────────────────────────────
+def kb_discover_menu():
+    return [
+        [Button.inline("👤 User",      b"disc_user"),
+         Button.inline("⭐ Premium",   b"disc_premium"),
+         Button.inline("🤖 Bot",       b"disc_bot")],
+        [Button.inline("👥 Group",     b"disc_group"),
+         Button.inline("📢 Channel",   b"disc_channel"),
+         Button.inline("💬 Forum",     b"disc_forum")],
+        [Button.inline("👥 My Group",  b"disc_mygroup"),
+         Button.inline("📢 My Channel",b"disc_mychannel"),
+         Button.inline("💬 My Forum",  b"disc_myforum")],
+        [Button.inline("⬅️ Voltar",   b"m_back")],
+    ]
+
+DISCOVER_INSTRUCTIONS={
+    "disc_user":      ("👤 User",       "Encaminhe uma mensagem de qualquer usuário aqui ou envie o @username."),
+    "disc_premium":   ("⭐ Premium",    "Encaminhe uma mensagem de um usuário Premium do Telegram."),
+    "disc_bot":       ("🤖 Bot",        "Encaminhe uma mensagem de um bot ou envie o @username do bot."),
+    "disc_group":     ("👥 Group",      "Encaminhe uma mensagem do grupo aqui ou envie o @username."),
+    "disc_channel":   ("📢 Channel",    "Encaminhe uma mensagem do canal aqui ou envie o @username."),
+    "disc_forum":     ("💬 Forum",      "Encaminhe uma mensagem do fórum (supergrupo com tópicos) aqui."),
+    "disc_mygroup":   ("👥 My Group",   "Encaminhe uma mensagem do seu grupo ou envie o @username."),
+    "disc_mychannel": ("📢 My Channel", "Encaminhe uma mensagem do seu canal ou envie o @username."),
+    "disc_myforum":   ("💬 My Forum",   "Encaminhe uma mensagem do seu fórum aqui."),
+}
+
 def status_texto():
     up=datetime.now()-stats["start"];h,r=divmod(int(up.total_seconds()),3600);mi,s=divmod(r,60)
     agenda_txt=f"{AGENDAMENTO['inicio']}–{AGENDAMENTO['fim']}" if AGENDAMENTO["ativo"] else "desativado"
@@ -144,7 +176,7 @@ def status_texto():
         f"Uptime: {h}h{mi}m{s}s"
     )
 
-# ── COMANDOS ──────────────────────────────────────────────────────────────────
+# ── COMANDOS ─────────────────────────────────────────────────
 @bot.on(events.NewMessage(pattern=r"^/menu$"))
 async def cmd_menu(ev):
     if not is_admin(ev.sender_id): return
@@ -180,12 +212,87 @@ async def cmd_stats(ev):
     t+=f"\n*Total: {stats['n']}* | Erros: {stats['err']}"
     await ev.respond(t,parse_mode="md")
 
-# Captura entrada de texto
+# ── CAPTURA DE TEXTO (AGUARDANDO + DISCOVER) ─────────────────
 @bot.on(events.NewMessage())
 async def entrada_usuario(ev):
     global PAUSADO,MOD,PREFIXO,RODAPE,DELAY,SEM_BOTS,AGENDAMENTO
     uid=ev.sender_id
     if not is_admin(uid): return
+
+    # ── DISCOVER: captura mensagem encaminhada ou @username ──
+    if uid in DISCOVER_STATE:
+        key=DISCOVER_STATE[uid]
+        result_lines=[]
+        handled=False
+
+        # Mensagem encaminhada
+        if ev.forward:
+            handled=True
+            fwd=ev.forward
+            sender=getattr(fwd,"sender",None)
+            if sender:
+                eid=sender.id
+                name=getattr(sender,"first_name","") or getattr(sender,"title","") or "Desconhecido"
+                uname=getattr(sender,"username",None)
+                if isinstance(sender,User):
+                    if sender.bot: tipo="🤖 Bot"
+                    elif getattr(sender,"premium",False): tipo="⭐ Premium"
+                    else: tipo="👤 Usuário"
+                    result_lines.append(f"🆔 **ID:** `{eid}`")
+                    result_lines.append(f"👤 **Nome:** {name}")
+                elif isinstance(sender,(Chat,Channel)):
+                    is_ch=isinstance(sender,Channel) and not sender.megagroup
+                    is_fo=getattr(sender,"forum",False)
+                    tipo="📢 Canal" if is_ch else ("💬 Fórum" if is_fo else "👥 Grupo")
+                    real_id=int(f"-100{eid}") if isinstance(sender,Channel) else -eid
+                    result_lines.append(f"🆔 **ID:** `{real_id}`")
+                    result_lines.append(f"📛 **Nome:** {name}")
+                else:
+                    tipo="❓ Desconhecido"
+                    result_lines.append(f"🆔 **ID:** `{eid}`")
+                if uname: result_lines.append(f"🔗 **Username:** @{uname}")
+                result_lines.append(f"📌 **Tipo:** {tipo}")
+            elif getattr(fwd,"channel_id",None):
+                handled=True
+                result_lines.append(f"🆔 **ID do canal:** `{int(f'-100{fwd.channel_id}')}`")
+
+        # @username digitado
+        elif ev.raw_text and ev.raw_text.strip().startswith("@"):
+            handled=True
+            username=ev.raw_text.strip()
+            try:
+                entity=await bot.get_entity(username)
+                eid=entity.id
+                name=getattr(entity,"first_name","") or getattr(entity,"title","") or "Desconhecido"
+                uname=getattr(entity,"username",None)
+                if isinstance(entity,User):
+                    if entity.bot: tipo="🤖 Bot"
+                    elif getattr(entity,"premium",False): tipo="⭐ Premium"
+                    else: tipo="👤 Usuário"
+                    result_lines.append(f"🆔 **ID:** `{eid}`")
+                    result_lines.append(f"👤 **Nome:** {name}")
+                elif isinstance(entity,(Chat,Channel)):
+                    is_ch=isinstance(entity,Channel) and not entity.megagroup
+                    is_fo=getattr(entity,"forum",False)
+                    tipo="📢 Canal" if is_ch else ("💬 Fórum" if is_fo else "👥 Grupo")
+                    real_id=int(f"-100{eid}") if isinstance(entity,Channel) else -eid
+                    result_lines.append(f"🆔 **ID:** `{real_id}`")
+                    result_lines.append(f"📛 **Nome:** {name}")
+                else:
+                    tipo="❓ Desconhecido"
+                    result_lines.append(f"🆔 **ID:** `{eid}`")
+                if uname: result_lines.append(f"🔗 **Username:** @{uname}")
+                result_lines.append(f"📌 **Tipo:** {tipo}")
+            except Exception as e:
+                result_lines.append(f"❌ Não encontrado: `{username}`\nErro: `{e}`")
+
+        if handled:
+            DISCOVER_STATE.pop(uid,None)
+            resp="✅ **ID Encontrado!**\n\n"+"\n".join(result_lines)
+            await ev.respond(resp,buttons=[[Button.inline("🔎 Descobrir outro",b"disc_new"),Button.inline("⬅️ Menu",b"disc_menu")]],parse_mode="md")
+            return
+
+    # ── AGUARDANDO: entrada de configuração ──────────────────
     if uid not in AGUARDANDO: return
     acao=AGUARDANDO.pop(uid)
     txt=ev.raw_text.strip()
@@ -244,7 +351,7 @@ async def entrada_usuario(ev):
             await ev.respond(f"⏰ Horário: `{AGENDAMENTO['inicio']} – {AGENDAMENTO['fim']}`",buttons=kb_agenda(),parse_mode="md")
         except: await ev.respond("❌ Formato: `HH:MM HH:MM`  ex: `08:00 22:00`",buttons=kb_agenda(),parse_mode="md")
 
-# ── CALLBACKS ─────────────────────────────────────────────────────────────────
+# ── CALLBACKS ────────────────────────────────────────────────
 @bot.on(events.CallbackQuery)
 async def callback(ev):
     global PAUSADO,MOD,SEM_BOTS,AGENDAMENTO,PREFIXO,RODAPE,MODO_SILENCIOSO
@@ -252,7 +359,36 @@ async def callback(ev):
         await ev.answer("⛔ Sem permissão!",alert=True); return
     d=ev.data; uid=ev.sender_id
 
-    if d==b"m_back": await ev.edit(f"🎛 *{BOT_NOME} — Painel*",buttons=kb_principal(),parse_mode="md")
+    # ── DISCOVER ID ──────────────────────────────────────────
+    if d==b"m_discover":
+        DISCOVER_STATE.pop(uid,None)
+        await ev.edit("🔎 *Descobrir ID*\n\nEscolha o tipo de entidade:",buttons=kb_discover_menu(),parse_mode="md")
+        return
+
+    if d in (b"disc_new",b"disc_menu"):
+        DISCOVER_STATE.pop(uid,None)
+        if d==b"disc_menu":
+            await ev.edit(f"🎛 *{BOT_NOME} — Painel de Controle*",buttons=kb_principal(),parse_mode="md")
+        else:
+            await ev.edit("🔎 *Descobrir ID*\n\nEscolha o tipo de entidade:",buttons=kb_discover_menu(),parse_mode="md")
+        return
+
+    if d.startswith(b"disc_"):
+        key=d.decode()
+        if key in DISCOVER_INSTRUCTIONS:
+            DISCOVER_STATE[uid]=key
+            title,instruction=DISCOVER_INSTRUCTIONS[key]
+            await ev.edit(
+                f"*{title}*\n\n{instruction}\n\n⬇️ Encaminhe a mensagem ou envie o @username:",
+                buttons=[[Button.inline("⬅️ Voltar",b"m_discover")]],
+                parse_mode="md"
+            )
+            return
+
+    # ── MENU PRINCIPAL ───────────────────────────────────────
+    if d==b"m_back":
+        DISCOVER_STATE.pop(uid,None)
+        await ev.edit(f"🎛 *{BOT_NOME} — Painel*",buttons=kb_principal(),parse_mode="md")
     elif d==b"m_origens": await ev.edit("📡 *Gerenciar Origens*\nVários IDs separados por vírgula.",buttons=kb_origens(),parse_mode="md")
     elif d==b"m_destinos": await ev.edit(f"🎯 *Destinos* ({len(DESTINOS)} configurado(s))",buttons=kb_destinos(),parse_mode="md")
     elif d==b"m_modo": await ev.edit("🔀 *Modo de Encaminhamento*",buttons=kb_modo(),parse_mode="md")
@@ -276,7 +412,7 @@ async def callback(ev):
         await ev.edit(f"🎛 *{BOT_NOME} — Painel*",buttons=kb_principal(),parse_mode="md")
         await ev.answer("🔕 Modo silencioso ON" if MODO_SILENCIOSO else "🔔 Modo normal ON",alert=True)
     # Origens
-    elif d==b"o_add": AGUARDANDO[uid]="o_add";await ev.answer("Digite o(s) ID(s) de origem.\nEx: -1001234567890, -1009876543210",alert=True)
+    elif d==b"o_add": AGUARDANDO[uid]="o_add";await ev.answer("Digite o(s) ID(s) de origem.\nEx: -1001234567890",alert=True)
     elif d==b"o_rem": AGUARDANDO[uid]="o_rem";await ev.answer(f"Origens: {SRC or 'todos'}\nDigite IDs para remover:",alert=True)
     elif d==b"o_ign": AGUARDANDO[uid]="o_ign";await ev.answer("Digite IDs para ignorar:",alert=True)
     elif d==b"o_des": AGUARDANDO[uid]="o_des";await ev.answer(f"Ignorados: {IGNORADOS}\nDigite IDs para designorar:",alert=True)
@@ -286,7 +422,7 @@ async def callback(ev):
         await ev.answer(t,alert=True)
     elif d==b"o_clear": SRC.clear();await ev.answer("🗑 Origens limpas!",alert=True)
     # Destinos
-    elif d==b"d_add": AGUARDANDO[uid]="d_add";await ev.answer("Digite ID(s) do(s) destino(s).\nEx: -1003861276779, -1001234567890",alert=True)
+    elif d==b"d_add": AGUARDANDO[uid]="d_add";await ev.answer("Digite ID(s) do(s) destino(s).\nEx: -1003861276779",alert=True)
     elif d==b"d_rem": AGUARDANDO[uid]="d_rem";await ev.answer(f"Destinos: {DESTINOS}\nDigite IDs para remover:",alert=True)
     elif d==b"d_list":
         t=("🎯 Destinos:\n"+"\n".join(f"• {s}" for s in DESTINOS)) if DESTINOS else "⚠️ Nenhum destino!"
@@ -340,7 +476,7 @@ async def callback(ev):
             except Exception as e: logger.error(f"Teste falhou em {dst}: {e}")
         await ev.answer(f"📤 Teste enviado para {ok}/{len(DESTINOS)} destino(s)!",alert=True)
 
-# ── HELPERS ───────────────────────────────────────────────────────────────────
+# ── HELPERS ──────────────────────────────────────────────────
 def dentro_do_horario():
     if not AGENDAMENTO["ativo"]: return True
     return AGENDAMENTO["inicio"]<=datetime.now().strftime("%H:%M")<=AGENDAMENTO["fim"]
@@ -355,7 +491,7 @@ def tipo_permitido(msg):
     if "sticker" in SOMENTE_TIPOS and msg.sticker: return True
     return False
 
-# ── ENCAMINHADOR ──────────────────────────────────────────────────────────────
+# ── ENCAMINHADOR (USERBOT) ───────────────────────────────────
 @userbot.on(events.NewMessage(incoming=True))
 async def handler(event):
     global ultimo_envio
@@ -404,7 +540,7 @@ async def handler(event):
 
     except Exception as e: stats["err"]+=1;logger.error(f"Erro geral: {e}")
 
-# ── MAIN ──────────────────────────────────────────────────────────────────────
+# ── MAIN ─────────────────────────────────────────────────────
 async def main():
     await userbot.start()
     await bot.start(bot_token=BOT_TOKEN)
