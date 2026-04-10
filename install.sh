@@ -5,6 +5,7 @@
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_RAW="https://raw.githubusercontent.com/Inforlozzi-ai/userbot-telegram-pro/main"
 
 pausar() { echo ""; read -p "  Pressione ENTER para continuar..." x; }
 limpar() { clear; }
@@ -37,18 +38,20 @@ menu_principal() {
   echo -e "  ${CYAN}[3]${NC} 🗑  Desinstalar bot"
   echo -e "  ${CYAN}[4]${NC} 📊 Ver logs em tempo real"
   echo -e "  ${CYAN}[5]${NC} 🔁 Regerar Session String de um bot"
-  echo -e "  ${CYAN}[6]${NC} 🧹 Limpar tudo (todos os bots)"
-  echo -e "  ${CYAN}[7]${NC} ❌ Sair"
+  echo -e "  ${CYAN}[6]${NC} 🔄 Atualizar bot.py (baixar versão mais recente)"
+  echo -e "  ${CYAN}[7]${NC} 🧹 Limpar tudo (todos os bots)"
+  echo -e "  ${CYAN}[8]${NC} ❌ Sair"
   echo ""
-  read -p "  Escolha [1-7]: " op
+  read -p "  Escolha [1-8]: " op
   case $op in
     1) instalar_bot ;;
     2) gerenciar_bots ;;
     3) desinstalar_bot ;;
     4) ver_logs ;;
     5) regerar_session ;;
-    6) limpar_tudo ;;
-    7) echo -e "\n  ${GREEN}Até logo! 👋${NC}\n"; exit 0 ;;
+    6) atualizar_botpy ;;
+    7) limpar_tudo ;;
+    8) echo -e "\n  ${GREEN}Até logo! 👋${NC}\n"; exit 0 ;;
     *) menu_principal ;;
   esac
 }
@@ -84,12 +87,11 @@ gerar_session_string() {
   echo -e "\n  ${BOLD}📱 Gerando Session String...${NC}"
   echo -e "  ${YELLOW}Você precisará do número de telefone e código do Telegram.${NC}\n"
 
-  # Cria script Python temporário
   cat > /tmp/gen_session.py << 'PYEOF'
 import asyncio
 from telethon import TelegramClient
 from telethon.sessions import StringSession
-import os, sys
+import os
 
 api_id  = int(os.environ.get("API_ID", "0"))
 api_hash = os.environ.get("API_HASH", "")
@@ -150,10 +152,8 @@ regerar_session() {
     pausar; menu_principal; return
   fi
 
-  # Atualiza .env
   sed -i "s|^SESSION_STRING=.*|SESSION_STRING=$SESSION_GERADA|" "$INSTALL_DIR/.env"
 
-  # Reinicia container com nova session
   BOT_TOKEN=$(docker inspect "$SELECTED_BOT" --format='{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null | grep "^BOT_TOKEN=" | cut -d= -f2-)
   BOT_NOME=$(docker inspect "$SELECTED_BOT" --format='{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null | grep "^BOT_NOME=" | cut -d= -f2-)
   TARGET_GROUP_ID=$(docker inspect "$SELECTED_BOT" --format='{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null | grep "^TARGET_GROUP_ID=" | cut -d= -f2-)
@@ -189,6 +189,37 @@ regerar_session() {
     echo -e "  ${RED}❌ Erro ao reiniciar. Logs:${NC}\n"
     docker logs "$SELECTED_BOT" 2>&1 | tail -20
   fi
+  pausar; menu_principal
+}
+
+# ── ATUALIZAR BOT.PY ───────────────────────────────────────
+atualizar_botpy() {
+  titulo
+  selecionar_bot "Atualizar bot.py de qual bot?"
+  [ -z "$SELECTED_BOT" ] && return
+
+  INSTALL_DIR="/opt/$SELECTED_BOT"
+  echo -e "\n  ${BOLD}🔄 Atualizando bot.py de ${CYAN}$SELECTED_BOT${NC}\n"
+
+  # Tenta baixar do repositório Git
+  if curl -fsSL "$REPO_RAW/bot.py" -o "$INSTALL_DIR/bot.py.new" 2>/dev/null; then
+    mv "$INSTALL_DIR/bot.py.new" "$INSTALL_DIR/bot.py"
+    echo -e "  ${GREEN}✅ bot.py atualizado do repositório!${NC}"
+  elif [ -f "$SCRIPT_DIR/bot.py" ]; then
+    cp "$SCRIPT_DIR/bot.py" "$INSTALL_DIR/bot.py"
+    echo -e "  ${GREEN}✅ bot.py atualizado da pasta local!${NC}"
+  else
+    echo -e "  ${RED}❌ Não foi possível baixar o bot.py.${NC}"
+    pausar; menu_principal; return
+  fi
+
+  docker restart "$SELECTED_BOT" && \
+    echo -e "  ${GREEN}✅ Container reiniciado!${NC}" || \
+    echo -e "  ${RED}❌ Erro ao reiniciar.${NC}"
+
+  echo -e "\n  ⏳ Aguardando 10s..."
+  sleep 10
+  docker logs "$SELECTED_BOT" 2>&1 | tail -15
   pausar; menu_principal
 }
 
@@ -342,7 +373,7 @@ instalar_bot() {
   # Passo 4 — Session String
   SESSION_STRING=""
 
-  # Verificar se já existe bot com mesmo API_ID para reutilizar session
+  # Reutilizar session de bot existente com mesmo API_ID
   for cn in $(docker ps -a --format "{{.Names}}" | grep "^userbot-"); do
     existing_api=$(docker inspect "$cn" --format='{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null | grep "^API_ID=" | cut -d= -f2)
     if [ "$existing_api" = "$API_ID" ]; then
@@ -395,14 +426,14 @@ instalar_bot() {
   TARGET_GROUP_ID=""
   if [ "$op_dest" = "1" ]; then
     echo -e "  Pode enviar vários IDs separados por vírgula."
-    echo -e "  ${YELLOW}Como descobrir o ID: adicione @userinfobot no grupo${NC}\n"
+    echo -e "  ${YELLOW}Use 🔎 Descobrir ID no bot para encontrar o ID${NC}\n"
     read -p "  ID(s) destino: " TARGET_GROUP_ID
     while [[ ! "$TARGET_GROUP_ID" == -* ]]; do
       echo -e "  ${RED}❌ ID deve começar com '-'${NC}"; read -p "  TARGET_GROUP_ID: " TARGET_GROUP_ID
     done
     echo -e "  ${GREEN}✅ Destino(s) salvo(s)!${NC}"
   else
-    echo -e "  ${YELLOW}⏭ Pulado — configure depois com 🎯 Destinos no /menu${NC}"
+    echo -e "  ${YELLOW}⏭ Pulado — use 🎯 Destinos no /menu para configurar depois${NC}"
   fi
   pausar
 
@@ -418,7 +449,7 @@ instalar_bot() {
     read -p "  IDs separados por vírgula: " SOURCE_CHAT_IDS
     echo -e "  ${GREEN}✅ Origens salvas!${NC}"
   elif [ "$op_orig" = "3" ]; then
-    echo -e "  ${YELLOW}⏭ Pulado — configure depois com 📡 Origens no /menu${NC}"
+    echo -e "  ${YELLOW}⏭ Pulado — use 📡 Origens no /menu para configurar depois${NC}"
   else
     echo -e "  ${GREEN}✅ Monitorará todos os grupos!${NC}"
   fi
@@ -438,7 +469,7 @@ instalar_bot() {
   echo -e "  ${BOLD}🔐 PASSO 9 — Administradores (opcional)${NC}\n"
   echo -e "  IDs dos usuários que podem controlar este bot."
   echo -e "  ${YELLOW}Deixe em branco para permitir qualquer pessoa.${NC}"
-  echo -e "  ${YELLOW}Como saber seu ID: envie /start para @userinfobot${NC}\n"
+  echo -e "  ${YELLOW}Use 🔎 Descobrir ID no bot para encontrar seu ID${NC}\n"
   read -p "  ADMIN_IDS (ex: 123456789,987654321): " ADMIN_IDS_INPUT
   pausar
 
@@ -462,11 +493,14 @@ instalar_bot() {
   echo -e "  ${BOLD}⚙️  Instalando $CONTAINER_NAME...${NC}\n"
   mkdir -p "$INSTALL_DIR"
 
-  if [ -f "$SCRIPT_DIR/bot.py" ]; then
+  # Baixar bot.py do repositório ou copiar local
+  if curl -fsSL "$REPO_RAW/bot.py" -o "$INSTALL_DIR/bot.py" 2>/dev/null; then
+    echo -e "  ${GREEN}✅ bot.py baixado do repositório!${NC}"
+  elif [ -f "$SCRIPT_DIR/bot.py" ]; then
     cp "$SCRIPT_DIR/bot.py" "$INSTALL_DIR/bot.py"
-    echo -e "  ${GREEN}✅ bot.py copiado!${NC}"
+    echo -e "  ${GREEN}✅ bot.py copiado da pasta local!${NC}"
   else
-    echo -e "  ${RED}❌ bot.py não encontrado em $SCRIPT_DIR${NC}"
+    echo -e "  ${RED}❌ bot.py não encontrado!${NC}"
     echo -e "  ${YELLOW}Coloque bot.py na mesma pasta do install.sh${NC}"
     pausar; return
   fi
@@ -520,7 +554,8 @@ ENVEOF
     echo -e "  Bot       : ${CYAN}${BOT_USER:-'ver no Telegram'}${NC}\n"
     echo -e "  ${BOLD}Próximos passos:${NC}"
     echo -e "  1. Adicione ${CYAN}${BOT_USER}${NC} como admin no grupo destino"
-    echo -e "  2. Envie ${CYAN}/menu${NC} para o bot\n"
+    echo -e "  2. Envie ${CYAN}/menu${NC} para o bot"
+    echo -e "  3. Use ${CYAN}🔎 Descobrir ID${NC} para encontrar IDs facilmente\n"
     total=$(docker ps --format "{{.Names}}" | grep "^userbot-" | wc -l)
     echo -e "  ${YELLOW}Total de bots rodando: $total${NC}"
   else
