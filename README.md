@@ -1,188 +1,55 @@
-# 🤖 Userbot Telegram PRO v2
-
-Userbot de encaminhamento automático de mensagens do Telegram com painel de controle completo via bot, suporte a múltiplos bots em paralelo e instalação com um único comando.
-
-![License](https://img.shields.io/badge/license-MIT-green)
-![Python](https://img.shields.io/badge/python-3.12-blue)
-![Docker](https://img.shields.io/badge/docker-ready-blue)
-
+🤖 Userbot Telegram PRO v2 — Multi-Bot
+Gerenciador de múltiplos userbots de encaminhamento para Telegram, com painel de controle via bot, menu inline completo e descoberta de IDs.
 ---
-
-## ✨ Funcionalidades
-
-- 📡 **Múltiplas origens** — monitora quantos grupos quiser
-- 🎯 **Múltiplos destinos** — encaminha para vários grupos ao mesmo tempo
-- 🔀 **Modo forward ou copy** — com ou sem indicação de origem
-- 🔍 **Filtros de palavras** — exigir ou bloquear palavras
-- 📁 **Filtro por tipo de mídia** — texto, foto, vídeo, áudio, doc, sticker
-- ⏰ **Agendamento por horário** — só encaminha em determinados horários
-- ✏️ **Prefixo e rodapé** personalizados nas mensagens
-- ⏱ **Delay** entre envios para evitar flood
-- 🤖 **Ignorar bots** automaticamente
-- 🔐 **Sistema de admins** — só usuários autorizados controlam o bot
-- 🔕 **Modo silencioso** — sem logs verbosos
-- 📊 **Estatísticas por hora** com comando `/stats`
-- 🤖 **Multi-bot** — rode quantos bots em paralelo quiser
-- 🐳 **Docker** — instalação limpa, sem conflitos
-
----
-
-## 📋 Pré-requisitos
-
-| Item | Como obter |
-|------|-----------|
-| **API_ID** e **API_HASH** | [my.telegram.org](https://my.telegram.org) → API Development Tools |
-| **BOT_TOKEN** | [@BotFather](https://t.me/BotFather) → `/newbot` |
-| **SESSION_STRING** | Gerado automaticamente pelo instalador |
-| **VPS com Docker** | O instalador instala o Docker automaticamente |
-
----
-
-## 🚀 Instalação rápida (recomendado)
-
+🚀 Instalação na VPS
+Copie e cole o comando abaixo de uma vez no terminal:
 ```bash
-# 1. Clonar o repositório
-git clone https://github.com/Inforlozzi-ai/userbot-telegram-pro.git && cd userbot-telegram-pro && chmod +x install.sh && sudo bash install.shcd userbot-telegram-pro
-
-# 2. Dar permissão e rodar
-chmod +x install.sh
-sudo bash install.sh
+cd ~ && rm -rf ~/userbot-telegram-pro && git clone https://github.com/Inforlozzi-ai/userbot-telegram-pro.git && cd ~/userbot-telegram-pro && chmod +x install.sh && sudo bash install.sh
 ```
-
-O instalador vai guiar você por todos os passos.
-
 ---
-
-## 📦 Instalação manual (sem git)
-
+🔄 Atualizar (já instalado)
 ```bash
-# Baixar direto e instalar
-curl -fsSL https://raw.githubusercontent.com/SEU_USUARIO/userbot-telegram-pro/main/install.sh -o install.sh
-curl -fsSL https://raw.githubusercontent.com/SEU_USUARIO/userbot-telegram-pro/main/bot.py -o bot.py
-chmod +x install.sh
-sudo bash install.sh
+cd ~/userbot-telegram-pro && git pull origin main && sudo bash install.sh
 ```
-
 ---
-
-## 🔄 Instalar um segundo bot em paralelo
-
-Cada bot precisa de:
-- Um **BOT_TOKEN diferente** (crie em @BotFather)
-- Um **nome único** (ex: `vendas`, `noticias`, `grupo2`)
-- A **mesma SESSION_STRING** (o instalador reutiliza automaticamente)
-
-```bash
-# Simplesmente rode o instalador novamente
-sudo bash install.sh
-# Escolha [1] Instalar novo bot → dê um nome diferente
-```
-
+📋 Funcionalidades
+✅ Multi-bot — instale quantos bots quiser em paralelo
+🎯 Destinos e origens configuráveis pelo /menu
+🔀 Modo forward ou copy
+🔍 Filtros por palavra (exigir/bloquear)
+⏰ Agendamento por horário
+✏️ Prefixo e rodapé personalizados
+📁 Filtro por tipo de mídia
+🔎 Descobrir ID de usuários, grupos, canais, bots e fóruns
+📊 Estatísticas e histórico
+🔕 Modo silencioso
+🔁 Regerar Session String sem reinstalar
+🔄 Atualizar bot.py sem reinstalar
 ---
-
-## 🎛 Painel de controle
-
-Após instalar, abra o bot no Telegram e envie:
-
-```
-/menu
-```
-
-| Botão | Função |
-|-------|--------|
-| 📡 Origens | Adicionar/remover grupos monitorados |
-| 🎯 Destinos | Adicionar/remover grupos destino |
-| 🔀 Modo | Forward, Copy, Delay, Tipos de mídia |
-| 🔍 Filtros | Palavras exigidas ou bloqueadas |
-| ⏰ Horário | Agendamento por horário |
-| ✏️ Mensagem | Prefixo e rodapé |
-| 📊 Status | Ver tudo de uma vez |
-| ⏸ Pausar | Pausar/retomar sem derrubar |
-
-### Comandos disponíveis
-
-| Comando | Descrição |
-|---------|-----------|
-| `/menu` | Abre o painel completo |
-| `/status` | Status resumido |
-| `/stats` | Estatísticas por hora |
-| `/pausar` | Pausa o encaminhamento |
-| `/retomar` | Retoma o encaminhamento |
-| `/start` | Mensagem de boas-vindas |
-
+🎛 Comandos do Bot
+Comando	Descrição
+`/menu`	Abre o painel de controle
+`/status`	Mostra status atual
+`/pausar`	Pausa o encaminhamento
+`/retomar`	Retoma o encaminhamento
+`/stats`	Estatísticas por hora
 ---
-
-## ⚙️ Variáveis de ambiente
-
-| Variável | Obrigatório | Descrição |
-|----------|-------------|-----------|
-| `API_ID` | ✅ | ID da API do Telegram |
-| `API_HASH` | ✅ | Hash da API do Telegram |
-| `SESSION_STRING` | ✅ | String de sessão da conta |
-| `BOT_TOKEN` | ✅ | Token do bot (@BotFather) |
-| `TARGET_GROUP_ID` | ✅ | IDs dos grupos destino (vírgula) |
-| `SOURCE_CHAT_IDS` | ❌ | IDs das origens (vazio = todos) |
-| `FORWARD_MODE` | ❌ | `forward` ou `copy` (padrão: forward) |
-| `BOT_NOME` | ❌ | Nome de exibição do bot |
-| `ADMIN_IDS` | ❌ | IDs dos admins separados por vírgula |
-
+🔎 Descobrir ID
+No painel `/menu` → botão 🔎 Descobrir ID:
+Escolha o tipo: User, Premium, Bot, Group, Channel, Forum, My Group, My Channel, My Forum
+Encaminhe uma mensagem ou envie o `@username`
+O bot retorna o ID automaticamente
 ---
-
-## 🐳 Gerenciar containers manualmente
-
-```bash
-# Ver todos os bots
-docker ps | grep userbot
-
-# Ver logs em tempo real
-docker logs -f telegram-userbot
-
-# Reiniciar
-docker restart telegram-userbot
-
-# Parar
-docker stop telegram-userbot
-
-# Remover
-docker rm -f telegram-userbot
-```
-
----
-
-## 🔧 Atualizar o bot
-
-```bash
-# Baixar versão mais recente
-git pull
-
-# Reiniciar todos os bots para aplicar
-for c in $(docker ps --format "{{.Names}}" | grep "^userbot-"); do
-  docker cp bot.py $c:/app/bot.py
-  docker restart $c
-  echo "✅ $c atualizado"
-done
-```
-
----
-
-## 📁 Estrutura do projeto
-
+🗂 Estrutura
 ```
 userbot-telegram-pro/
-├── bot.py          # Código principal do userbot
-├── install.sh      # Instalador interativo multi-bot
-├── README.md       # Esta documentação
-└── .gitignore      # Ignora arquivos sensíveis
+├── bot.py          # Código principal do bot
+├── install.sh      # Script de instalação interativo
+└── README.md       # Este arquivo
 ```
-
 ---
-
-## ⚠️ Aviso legal
-
-Este projeto é para uso educacional. O uso de userbots pode violar os [Termos de Serviço do Telegram](https://telegram.org/tos). Use com responsabilidade.
-
----
-
-## 📄 Licença
-
-MIT License — veja [LICENSE](LICENSE) para detalhes.
+⚙️ Requisitos
+VPS com Linux (Ubuntu/Debian recomendado)
+Docker instalado (o install.sh instala automaticamente se necessário)
+Conta no Telegram + API Key em my.telegram.org
+Bot criado via @BotFather
