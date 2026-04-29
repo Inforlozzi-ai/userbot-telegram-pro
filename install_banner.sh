@@ -23,13 +23,12 @@ titulo() {
   echo -e "${NC}"
 }
 
-# ── MENU ───────────────────────────────────────────────────────────────────
 menu_principal() {
   titulo
   status=$(docker inspect --format='{{.State.Status}}' "$CONTAINER" 2>/dev/null || echo "não instalado")
   icon="❌"
-  [ "$status" = "running" ]  && icon="🟢"
-  [ "$status" = "exited"  ]  && icon="🔴"
+  [ "$status" = "running" ] && icon="🟢"
+  [ "$status" = "exited"  ] && icon="🔴"
 
   echo -e "  Status: $icon ${BOLD}$CONTAINER${NC} ($status)\n"
   echo -e "  ${CYAN}[1]${NC} 🆕 Instalar / Reinstalar"
@@ -54,62 +53,47 @@ menu_principal() {
   esac
 }
 
-# ── CONFIGURAR LOGO E CORES ────────────────────────────────────────────────
 configurar_visual() {
   titulo
   echo -e "  ${BOLD}🎨 CONFIGURAÇÃO VISUAL${NC}\n"
 
-  # Carrega valores atuais do .env
   ENV_FILE="$INSTALL_DIR/.env"
-  COR_FUNDO=$(grep COR_FUNDO     "$ENV_FILE" 2>/dev/null | cut -d= -f2) ; COR_FUNDO=${COR_FUNDO:-0F0A1E}
-  COR_DEST=$(grep  COR_DESTAQUE  "$ENV_FILE" 2>/dev/null | cut -d= -f2) ; COR_DEST=${COR_DEST:-8A2BE2}
-  COR_TEXTO=$(grep COR_TEXTO     "$ENV_FILE" 2>/dev/null | cut -d= -f2) ; COR_TEXTO=${COR_TEXTO:-FFFFFF}
-  LOGO=$(grep      LOGO_PATH     "$ENV_FILE" 2>/dev/null | cut -d= -f2) ; LOGO=${LOGO:-/app/assets/logo.png}
+  COR_FUNDO=$(grep COR_FUNDO    "$ENV_FILE" 2>/dev/null | cut -d= -f2); COR_FUNDO=${COR_FUNDO:-0F0A1E}
+  COR_DEST=$(grep  COR_DESTAQUE "$ENV_FILE" 2>/dev/null | cut -d= -f2); COR_DEST=${COR_DEST:-C8910A}
+  COR_TEXTO=$(grep COR_TEXTO    "$ENV_FILE" 2>/dev/null | cut -d= -f2); COR_TEXTO=${COR_TEXTO:-FFFFFF}
+  LOGO=$(grep      LOGO_PATH    "$ENV_FILE" 2>/dev/null | cut -d= -f2); LOGO=${LOGO:-/app/assets/logo.png}
 
   echo -e "  ${YELLOW}Valores atuais entre colchetes. ENTER para manter.${NC}\n"
-
-  # Logo
   echo -e "  ${BOLD}LOGO${NC}"
-  echo -e "  Coloque seu arquivo PNG em:  ${CYAN}$INSTALL_DIR/assets/logo.png${NC}"
-  echo -e "  Ou informe outro caminho no container (ex: /app/assets/logo.png)"
-  read -p "  Caminho da logo no container [$LOGO]: " inp
-  [ -n "$inp" ] && LOGO="$inp"
+  echo -e "  Arquivo atual: ${CYAN}$INSTALL_DIR/assets/logo.png${NC}"
+  echo -e "  Para trocar: cole um novo PNG em $INSTALL_DIR/assets/logo.png"
+  echo -e "  Ou informe outro caminho no container:"
+  read -p "  Caminho [$LOGO]: " inp; [ -n "$inp" ] && LOGO="$inp"
 
-  # Cores (hex sem #)
-  echo -e "\n  ${BOLD}CORES (hex sem # — ex: 8A2BE2)${NC}"
-  echo -e "  ${YELLOW}Paleta de referência:${NC}"
-  echo -e "    0F0A1E = roxo muito escuro  |  1A1230 = card escuro"
-  echo -e "    8A2BE2 = violeta            |  00B4D8 = azul ciano"
-  echo -e "    E94560 = vermelho           |  F5A623 = laranja\n"
+  echo -e "\n  ${BOLD}CORES (hex sem # — ex: C8910A)${NC}"
+  echo -e "  ${YELLOW}Sugestões:${NC}"
+  echo -e "    0F0A1E = roxo escuro  |  C8910A = dourado Inforlozzi"
+  echo -e "    1A0A00 = preto quente |  E94560 = vermelho  |  00B4D8 = azul\n"
 
-  read -p "  COR_FUNDO    (cor de fundo do banner) [$COR_FUNDO]: "   inp; [ -n "$inp" ] && COR_FUNDO="${inp^^}"
-  read -p "  COR_DESTAQUE (barra lateral, horário) [$COR_DEST]:  "   inp; [ -n "$inp" ] && COR_DEST="${inp^^}"
-  read -p "  COR_TEXTO    (texto principal)        [$COR_TEXTO]:  "  inp; [ -n "$inp" ] && COR_TEXTO="${inp^^}"
+  read -p "  COR_FUNDO    (fundo do banner)    [$COR_FUNDO]:  " inp; [ -n "$inp" ] && COR_FUNDO="${inp^^}"
+  read -p "  COR_DESTAQUE (barras, horários)   [$COR_DEST]:   " inp; [ -n "$inp" ] && COR_DEST="${inp^^}"
+  read -p "  COR_TEXTO    (texto principal)    [$COR_TEXTO]:  " inp; [ -n "$inp" ] && COR_TEXTO="${inp^^}"
 
-  # Escreve no .env
   if [ -f "$ENV_FILE" ]; then
     sed -i "/^LOGO_PATH=/d;/^COR_FUNDO=/d;/^COR_DESTAQUE=/d;/^COR_TEXTO=/d" "$ENV_FILE"
-    {
-      echo "LOGO_PATH=$LOGO"
-      echo "COR_FUNDO=$COR_FUNDO"
-      echo "COR_DESTAQUE=$COR_DEST"
-      echo "COR_TEXTO=$COR_TEXTO"
-    } >> "$ENV_FILE"
-    echo -e "\n  ${GREEN}✅ Configuração salva em $ENV_FILE${NC}"
-    echo -e "  ${YELLOW}Reiniciando container para aplicar...${NC}"
-    _relançar
+    { echo "LOGO_PATH=$LOGO"; echo "COR_FUNDO=$COR_FUNDO"; echo "COR_DESTAQUE=$COR_DEST"; echo "COR_TEXTO=$COR_TEXTO"; } >> "$ENV_FILE"
+    echo -e "\n  ${GREEN}✅ Salvo! Reiniciando...${NC}"
+    _relancar
   else
     echo -e "\n  ${RED}❌ .env não encontrado. Instale primeiro (opção 1).${NC}"
   fi
   pausar; menu_principal
 }
 
-# ── INSTALAR ───────────────────────────────────────────────────────────────
 instalar() {
   [ "$EUID" -ne 0 ] && echo -e "  ${RED}Execute como root: sudo bash install_banner.sh${NC}" && exit 1
   titulo
 
-  # Verificar Docker
   if ! command -v docker &>/dev/null; then
     echo -e "  ${YELLOW}Instalando Docker...${NC}"
     curl -fsSL https://get.docker.com | bash >/dev/null 2>&1
@@ -117,7 +101,8 @@ instalar() {
     echo -e "  ${GREEN}✅ Docker instalado!${NC}"
   fi
 
-  echo -e "  ${BOLD}📱 PASSO 1 — Token do Bot (BOT_TOKEN)${NC}\n"
+  titulo
+  echo -e "  ${BOLD}📱 PASSO 1 — Token do Bot${NC}\n"
   echo -e "  Crie ou use um bot existente via ${CYAN}@BotFather${NC}\n"
   read -p "  BOT_TOKEN: " BOT_TOKEN
   while [[ ! "$BOT_TOKEN" == *":"* ]]; do
@@ -127,9 +112,8 @@ instalar() {
 
   titulo
   echo -e "  ${BOLD}📢 PASSO 2 — ID do Canal/Grupo${NC}\n"
-  echo -e "  Para canais: -100XXXXXXXXXX"
-  echo -e "  Para grupos: -XXXXXXXXXX"
-  echo -e "  ${YELLOW}Dica: use @userinfobot no Telegram para descobrir o ID${NC}\n"
+  echo -e "  Para canais: -100XXXXXXXXXX  |  Grupos: -XXXXXXXXXX"
+  echo -e "  ${YELLOW}Dica: envie uma mensagem no grupo e use @userinfobot${NC}\n"
   read -p "  CHAT_ID: " CHAT_ID
   while [[ ! "$CHAT_ID" == -* ]]; do
     echo -e "  ${RED}❌ Deve começar com '-'${NC}"; read -p "  CHAT_ID: " CHAT_ID
@@ -137,48 +121,41 @@ instalar() {
   pausar
 
   titulo
-  echo -e "  ${BOLD}⏰ PASSO 3 — Horário de envio${NC}\n"
-  echo -e "  Horário diário para enviar os banners (fuso de Brasília)."
+  echo -e "  ${BOLD}⏰ PASSO 3 — Horário de envio (Brasília)${NC}\n"
   read -p "  Horário [08:00]: " HORA_ENVIO
   HORA_ENVIO="${HORA_ENVIO:-08:00}"
   pausar
 
   titulo
   echo -e "  ${BOLD}⚽ PASSO 4 — Ligas de Futebol${NC}\n"
-  echo -e "  IDs das ligas TheSportsDB separados por vírgula:"
-  echo -e "    ${CYAN}4351${NC} = Brasileirão Série A"
-  echo -e "    ${CYAN}4406${NC} = Copa Libertadores"
-  echo -e "    ${CYAN}4328${NC} = Premier League"
-  echo -e "    ${CYAN}4335${NC} = La Liga"
-  echo -e "    ${CYAN}4331${NC} = Bundesliga"
-  echo -e "    ${CYAN}4480${NC} = UEFA Champions League\n"
+  echo -e "    ${CYAN}4351${NC} = Brasileirão  |  ${CYAN}4406${NC} = Libertadores"
+  echo -e "    ${CYAN}4328${NC} = Premier League  |  ${CYAN}4480${NC} = Champions League"
+  echo -e "    ${CYAN}4335${NC} = La Liga  |  ${CYAN}4331${NC} = Bundesliga\n"
   read -p "  Ligas [4351,4406]: " FOOTBALL_LEAGUES
   FOOTBALL_LEAGUES="${FOOTBALL_LEAGUES:-4351,4406}"
   pausar
 
   titulo
-  echo -e "  ${BOLD}🎨 PASSO 5 — Visual (logo e cores)${NC}\n"
-  echo -e "  ${YELLOW}Você pode pular agora e configurar depois com a opção [2]${NC}\n"
-  read -p "  Configurar agora? [s/N]: " conf_visual
+  echo -e "  ${BOLD}🎨 PASSO 5 — Visual${NC}\n"
+  echo -e "  ${GREEN}Logo Inforlozzi será baixada automaticamente do repositório.${NC}"
+  echo -e "  Você pode trocar depois com a opção [2] do menu.\n"
+  read -p "  Configurar cores agora? [s/N]: " conf_visual
 
   COR_FUNDO="0F0A1E"
-  COR_DESTAQUE="8A2BE2"
+  COR_DESTAQUE="C8910A"
   COR_TEXTO="FFFFFF"
 
   if [[ "$conf_visual" =~ ^[sS]$ ]]; then
-    echo -e "\n  ${BOLD}CORES (hex sem # — ENTER para usar padrão)${NC}\n"
-    read -p "  COR_FUNDO    (fundo escuro)  [0F0A1E]: " inp; [ -n "$inp" ] && COR_FUNDO="${inp^^}"
-    read -p "  COR_DESTAQUE (destaque)      [8A2BE2]: " inp; [ -n "$inp" ] && COR_DESTAQUE="${inp^^}"
-    read -p "  COR_TEXTO    (texto)         [FFFFFF]: " inp; [ -n "$inp" ] && COR_TEXTO="${inp^^}"
+    echo -e "\n  ${BOLD}CORES (hex sem # — ENTER para usar padrão)${NC}"
+    echo -e "  Padrão: fundo ${CYAN}0F0A1E${NC} | destaque ${CYAN}C8910A${NC} (dourado) | texto ${CYAN}FFFFFF${NC}\n"
+    read -p "  COR_FUNDO    [0F0A1E]: " inp; [ -n "$inp" ] && COR_FUNDO="${inp^^}"
+    read -p "  COR_DESTAQUE [C8910A]: " inp; [ -n "$inp" ] && COR_DESTAQUE="${inp^^}"
+    read -p "  COR_TEXTO    [FFFFFF]: " inp; [ -n "$inp" ] && COR_TEXTO="${inp^^}"
   fi
   pausar
 
   # Criar estrutura
   mkdir -p "$INSTALL_DIR/assets" "$INSTALL_DIR/output"
-
-  echo -e "\n  ${YELLOW}💡 Coloque sua logo PNG em: ${CYAN}$INSTALL_DIR/assets/logo.png${NC}"
-  echo -e "  ${YELLOW}   (se não colocar, o espaço fica em branco — sem erro)${NC}\n"
-  pausar
 
   # Baixar banner_bot.py
   if curl -fsSL "$REPO_RAW/banner_bot.py" -o "$INSTALL_DIR/banner_bot.py" 2>/dev/null; then
@@ -188,6 +165,17 @@ instalar() {
     echo -e "  ${GREEN}✅ banner_bot.py copiado!${NC}"
   else
     echo -e "  ${RED}❌ banner_bot.py não encontrado!${NC}"; pausar; return
+  fi
+
+  # Baixar logo do repositorio
+  echo -e "  🚀 Baixando logo do repositório..."
+  if curl -fsSL "$REPO_RAW/assets/logo.png" \
+       -o "$INSTALL_DIR/assets/logo.png" 2>/dev/null \
+     && [ -s "$INSTALL_DIR/assets/logo.png" ]; then
+    echo -e "  ${GREEN}✅ Logo baixada!${NC}"
+  else
+    echo -e "  ${YELLOW}⚠️  Logo não encontrada — banner funcionará sem logo.${NC}"
+    echo -e "  ${YELLOW}   Coloque sua logo em: $INSTALL_DIR/assets/logo.png${NC}"
   fi
 
   # Escrever .env
@@ -204,7 +192,7 @@ TZ=America/Sao_Paulo
 ENVEOF
   chmod 600 "$INSTALL_DIR/.env"
 
-  _relançar
+  _relancar
 
   echo -e "  ⏳ Aguardando inicialização (15s)..."
   sleep 15
@@ -217,12 +205,11 @@ ENVEOF
     echo "  ╚══════════════════════════════════════════════════╝"
     echo -e "${NC}"
     echo -e "  Container : ${GREEN}$CONTAINER${NC}"
-    echo -e "  Envio     : ${CYAN}$HORA_ENVIO${NC} (horário de Brasília)"
+    echo -e "  Envio     : ${CYAN}$HORA_ENVIO${NC} (Brasília)"
     echo -e "  Ligas     : ${CYAN}$FOOTBALL_LEAGUES${NC}\n"
     echo -e "  ${BOLD}Próximos passos:${NC}"
-    echo -e "  1. Coloque sua logo em: ${CYAN}$INSTALL_DIR/assets/logo.png${NC}"
-    echo -e "  2. Use a opção ${CYAN}[3] Testar agora${NC} para ver o resultado"
-    echo -e "  3. Ajuste cores quando quiser com a opção ${CYAN}[2]${NC}\n"
+    echo -e "  1. Use ${CYAN}[3] Testar agora${NC} para ver o banner"
+    echo -e "  2. Ajuste cores com ${CYAN}[2] Configurar visual${NC}\n"
   else
     echo -e "\n  ${RED}❌ Erro ao iniciar! Logs:${NC}\n"
     docker logs "$CONTAINER" 2>&1 | tail -25
@@ -230,10 +217,7 @@ ENVEOF
   pausar; menu_principal
 }
 
-# ── LANÇAR / RELANÇAR CONTAINER ────────────────────────────────────────────
-_relançar() {
-  # Carrega .env
-  source "$INSTALL_DIR/.env" 2>/dev/null
+_relancar() {
   docker rm -f "$CONTAINER" 2>/dev/null || true
   echo -e "  🚀 Subindo container..."
   docker run -d \
@@ -253,16 +237,13 @@ _relançar() {
   echo -e "  ${GREEN}✅ Container iniciado!${NC}"
 }
 
-# ── TESTAR ─────────────────────────────────────────────────────────────────
 testar() {
   titulo
   echo -e "  ${BOLD}▶️  Executando job de teste agora...${NC}\n"
-  docker exec "$CONTAINER" \
-    python -c "import banner_bot; banner_bot.job()" 2>&1 | tail -30
+  docker exec "$CONTAINER" python -c "import banner_bot; banner_bot.job()" 2>&1 | tail -30
   pausar; menu_principal
 }
 
-# ── LOGS ───────────────────────────────────────────────────────────────────
 ver_logs() {
   titulo
   echo -e "  ${YELLOW}Pressione Ctrl+C para sair${NC}\n"
@@ -270,25 +251,20 @@ ver_logs() {
   pausar; menu_principal
 }
 
-# ── REINICIAR ──────────────────────────────────────────────────────────────
 reiniciar() {
   titulo
   docker restart "$CONTAINER" && \
-    echo -e "  ${GREEN}✅ Reiniciado!${NC}" || \
-    echo -e "  ${RED}❌ Erro.${NC}"
+    echo -e "  ${GREEN}✅ Reiniciado!${NC}" || echo -e "  ${RED}❌ Erro.${NC}"
   pausar; menu_principal
 }
 
-# ── PARAR ──────────────────────────────────────────────────────────────────
 parar() {
   titulo
   docker stop "$CONTAINER" && \
-    echo -e "  ${GREEN}✅ Parado!${NC}" || \
-    echo -e "  ${RED}❌ Erro.${NC}"
+    echo -e "  ${GREEN}✅ Parado!${NC}" || echo -e "  ${RED}❌ Erro.${NC}"
   pausar; menu_principal
 }
 
-# ── DESINSTALAR ────────────────────────────────────────────────────────────
 desinstalar() {
   titulo
   echo -e "  ${RED}${BOLD}⚠️  Isso vai remover o container e todos os arquivos!${NC}\n"
